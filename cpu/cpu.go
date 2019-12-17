@@ -5,9 +5,10 @@ import (
 )
 
 const (
-	ROMSize       = 512
+	ROMSize       = 1 << 16
 	RAMSize       = 512
 	RegisterCount = 8
+	StackDepth    = 32
 )
 
 type flags struct {
@@ -35,10 +36,10 @@ type CPU struct {
 
 func NewCPU() *CPU {
 	return &CPU{
-		ROM:       [512]uint8{},
-		RAM:       [512]uint8{},
+		ROM:       [ROMSize]uint8{},
+		RAM:       [RAMSize]uint8{},
 		registers: [8]uint8{},
-		stack:     newStack(32),
+		stack:     newStack(StackDepth),
 		flags:     &flags{},
 		pc:        0,
 	}

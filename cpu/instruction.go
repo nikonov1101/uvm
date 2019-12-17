@@ -63,6 +63,13 @@ type instruction struct {
 	operands []operand
 }
 
+// calculateAddress calculates 16-bit address using
+// LO and HI 8-bit address parts
+func (in *instruction) calculateAddress(lo, hi uint8) uint16 {
+	// shift HI by 8 bits, then OR with LO to fill the rest
+	return uint16(hi)<<8 | uint16(lo)
+}
+
 // execute the instruction
 // can touch:
 //   * registers
@@ -77,7 +84,7 @@ func (in *instruction) execute(cpu *CPU) {
 
 	case asmJUMP:
 		// go to address, DO NOT increment PC by one
-		cpu.pc = uint16(in.operands[0].value)
+		cpu.pc = in.calculateAddress(in.operands[0].value, in.operands[1].value)
 		return
 
 	case asmADDRegReg:
@@ -89,6 +96,10 @@ func (in *instruction) execute(cpu *CPU) {
 
 	case asmMOVRegVal:
 		cpu.registers[in.operands[0].value] = in.operands[1].value
+	case asmMOVRegAddr:
+		addr := in.calculateAddress(in.operands[1].value, in.operands[2].value)
+		// load ROM value at given ADDR into the operand's REG
+		cpu.registers[in.operands[0].value] = cpu.ROM[addr]
 
 	case asmHALT:
 		cpu.flags.halt = true
@@ -116,7 +127,7 @@ func decodeInstruction(v uint8) instruction {
 		// do nothing
 		asmNOP: {name: "NOP", operandCount: 0},
 		// load new address to PC
-		asmJUMP: {name: "JUMP", operandCount: 1, operands: []operand{{opType: operandAddress}}},
+		asmJUMP: {name: "JUMP", operandCount: 2, operands: []operand{{opType: operandAddress}, {opType: operandAddress}}},
 		// PUSH r1
 		asmPUSH: {name: "PUSH", operandCount: 1, operands: []operand{{opType: operandRegister}}},
 		// POP r1
@@ -133,7 +144,7 @@ func decodeInstruction(v uint8) instruction {
 		// MOV r1 <- #val
 		asmMOVRegVal: {name: "MOV", operandCount: 2, operands: []operand{{opType: operandRegister}, {opType: operandValue}}},
 		// MOV r1 <- $addr
-		asmMOVRegAddr: {name: "MOV", operandCount: 2, operands: []operand{{opType: operandRegister}, {opType: operandAddress}}},
+		asmMOVRegAddr: {name: "MOV", operandCount: 3, operands: []operand{{opType: operandRegister}, {opType: operandAddress}, {opType: operandAddress}}},
 	}
 
 	ins, ok := m[v]
