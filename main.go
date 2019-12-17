@@ -1,10 +1,11 @@
 package main
 
 import (
+	"github.com/sshaman1101/uvm/asm"
 	"github.com/sshaman1101/uvm/cpu"
 )
 
-var prog = [cpu.ROMSize]uint8{
+var byteCode = [cpu.ROMSize]uint8{
 	0x21, 0x00, 0x03, // mov r0, #3,
 	0x21, 0x01, 0x02, // mov r1, #2
 	0x10, 0x00, 0x01, // add r0, r1 (store result in r1)
@@ -18,15 +19,40 @@ var prog = [cpu.ROMSize]uint8{
 	0xaa, // just a value at addr = 0x19
 }
 
-// all opCodes are NOPs, with HALT at end (see main() func)
-var nopProg = [cpu.ROMSize]uint8{}
+var asmCode = `
+; check addition
+MOV r0, #3
+MOV r1, #2
+ADD r0, r1
+; can we do nothing?
+NOP
+NOP
+; check push
+PUSH r1
+NOP
+NOP
+; check pop
+POP r5
+; check mem load
+MOV r3, $0101
+NOP
+; check jump
+JUMP $00FF
+
+; place more instructions at $00ff
+; check that we can compile .text's
+.text $00FF
+HALT
+
+; place random value at $0100
+; check that we can compile .byte's
+.byte $0101 #42
+`
 
 func main() {
-	// monkey-patching be like
-	prog[255] = 0x09              // HALT
-	nopProg[cpu.ROMSize-1] = 0x09 // HALT
+	p := asm.Compile(asmCode)
 
 	uCPU := cpu.NewCPU()
-	uCPU.ROM = nopProg
+	uCPU.ROM = p
 	uCPU.Run()
 }

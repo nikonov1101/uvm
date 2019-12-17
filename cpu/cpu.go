@@ -99,7 +99,7 @@ func (cpu *CPU) Run() {
 		fmt.Printf("flags = %v\n", cpu.flags)
 		fmt.Printf("registers:\n")
 		for i := 0; i < RegisterCount; i++ {
-			fmt.Printf("  r%d = %v", i, cpu.registers[i])
+			fmt.Printf("  r%d = %02x", i, cpu.registers[i])
 		}
 		fmt.Println()
 	}
