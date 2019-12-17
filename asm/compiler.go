@@ -223,7 +223,7 @@ func Compile(prog string) [1 << 16]uint8 {
 			// parse given address
 			addr := asAddress(ops[0], lineNum)
 
-			// put the following program at text current .text addr
+			// put the following program right after the given address
 			offset = addr
 
 		} else if insType == "BYTE" {
