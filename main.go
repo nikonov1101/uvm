@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strings"
+
 	"github.com/sshaman1101/uvm/asm"
 	"github.com/sshaman1101/uvm/cpu"
 )
@@ -50,7 +52,8 @@ HALT
 `
 
 func main() {
-	p := asm.Compile(asmCode)
+	rd := strings.NewReader(asmCode)
+	p := asm.Compile(rd)
 
 	uCPU := cpu.NewCPU()
 	uCPU.ROM = p

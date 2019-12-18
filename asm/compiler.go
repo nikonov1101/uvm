@@ -3,6 +3,7 @@ package asm
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 )
@@ -152,21 +153,18 @@ func assemble(ins string, ops []string) []uint8 {
 	return nil
 }
 
-func Compile(prog string) [1 << 16]uint8 {
-	rd := bufio.NewReader(strings.NewReader(prog))
+// Compile compiles program loaded from reader (usually strings.Reader or os.File)
+func Compile(progReader io.Reader) [1 << 16]uint8 {
 
 	bin := [1 << 16]uint8{}
 	offset := uint16(0x00)
 	lineNum := 0
 
-	for {
+	sk := bufio.NewScanner(progReader)
+	for sk.Scan() {
 		lineNum++
-		line, err := rd.ReadString('\n')
-		if err != nil {
-			fmt.Printf("err = %v\n", err)
-			break
-		}
-		line = strings.TrimSpace(line)
+
+		line := strings.TrimSpace(sk.Text())
 		if len(line) == 0 {
 			continue
 		}
