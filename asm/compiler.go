@@ -4,16 +4,63 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"strconv"
 	"strings"
+
+	"gopkg.in/yaml.v2"
 )
 
-// mov
-//  op: r, r
-//  op: r, #
-//  op: r, $
+type (
+	Syntax      = map[string]map[uint8][]OperandType
+	OpCodes     = map[uint8][]OperandType
+	OperandType string
 
-type nodeType uint8
+	nodeType uint8
+)
+
+const (
+	OperandReg  OperandType = "reg"
+	OperandVal  OperandType = "val"
+	OperandAddr OperandType = "addr"
+
+	_ nodeType = iota
+	nodeInstruction
+	nodeText
+	nodeByte
+)
+
+func LoadSyntax(p string) (Syntax, OpCodes) {
+	b, err := ioutil.ReadFile(p)
+	if err != nil {
+		panic(fmt.Sprintf("failed to load syntax from %s: %v", p, err))
+	}
+
+	sst := map[string]map[uint8][]OperandType{}
+
+	if err := yaml.Unmarshal(b, &sst); err != nil {
+		panic(fmt.Sprintf("failed to unmarshal syntax: %v", err))
+	}
+
+	fmt.Println("Syntax loaded.")
+	fmt.Printf("%d instructions are available.\n", len(sst))
+	for ins, opts := range sst {
+		fmt.Printf("%s\n", ins)
+		for code, args := range opts {
+			fmt.Printf("    %02x %v\n", code, args)
+		}
+		fmt.Println()
+	}
+
+	opCodes := map[uint8][]OperandType{}
+	for _, ops := range sst {
+		for code, args := range ops {
+			opCodes[code] = args
+		}
+	}
+
+	return sst, opCodes
+}
 
 func newNodeType(s string) nodeType {
 	switch s {
@@ -39,25 +86,14 @@ func (n nodeType) String() string {
 	}
 }
 
-const (
-	opTypeReg  = 1
-	opTypeVal  = 2
-	opTypeAddr = 3
-
-	_ nodeType = iota
-	nodeInstruction
-	nodeText
-	nodeByte
-)
-
 // parseTextOperand parses and returns its byte-code representation.
 // if here is one-byte operands - only `lo` will be filled.
 // for two-bytes operands (such as mem address) both of `hi` and `lo`
 // will hold values;
 // note: return order is lo, hi
-func parseTextOperand(op string, typ int) (uint8, uint8, error) {
+func parseTextOperand(op string, typ OperandType) (uint8, uint8, error) {
 	switch typ {
-	case opTypeReg:
+	case OperandReg:
 		if op[0] != 'r' {
 			return 0, 0, fmt.Errorf("invalid register definition")
 		}
@@ -66,7 +102,7 @@ func parseTextOperand(op string, typ int) (uint8, uint8, error) {
 		}
 
 		return op[1] - '0', 0, nil
-	case opTypeVal:
+	case OperandVal:
 		if op[0] != '#' {
 			return 0, 0, fmt.Errorf("invalid value definition")
 		}
@@ -80,7 +116,7 @@ func parseTextOperand(op string, typ int) (uint8, uint8, error) {
 		}
 
 		return uint8(val), 0, err
-	case opTypeAddr: // addr
+	case OperandAddr: // addr
 		if op[0] != '$' {
 			return 0, 0, fmt.Errorf("invalid addr definition")
 		}
@@ -102,37 +138,9 @@ func parseTextOperand(op string, typ int) (uint8, uint8, error) {
 	}
 }
 
-// simple syntax tree, must be loaded from external source in the future
-var syntax = map[string]map[uint8][]int{
-	"NOP": {
-		0x00: {},
-	},
-	"JUMP": {
-		0x01: {opTypeAddr},
-	},
-	"PUSH": {
-		0x02: {opTypeReg},
-	},
-	"POP": {
-		0x03: {opTypeReg},
-	},
-	"HALT": {
-		0x09: {},
-	},
-	"ADD": {
-		0x10: {opTypeReg, opTypeReg},
-		0x11: {opTypeReg, opTypeVal},
-	},
-	"MOV": {
-		0x20: {opTypeReg, opTypeReg},
-		0x21: {opTypeReg, opTypeVal},
-		0x22: {opTypeReg, opTypeAddr},
-	},
-}
-
 // assemble turns instruction and operands text into the machine codes
-func assemble(ins string, ops []string) []uint8 {
-	p, ok := syntax[ins]
+func assemble(ins string, ops []string, syn *Syntax) []uint8 {
+	p, ok := (*syn)[ins]
 	if !ok {
 		panic(fmt.Sprintf("unknown instruction %s", ins))
 	}
@@ -165,7 +173,7 @@ func assemble(ins string, ops []string) []uint8 {
 			//    otherwise store only `lo` one.
 			if err == nil {
 				matched++
-				if expectedType == opTypeReg || expectedType == opTypeVal {
+				if expectedType == OperandReg || expectedType == OperandVal {
 					operandStack = append(operandStack, lo)
 				} else {
 					operandStack = append(operandStack, lo, hi)
@@ -185,7 +193,7 @@ func assemble(ins string, ops []string) []uint8 {
 }
 
 // Compile compiles program loaded from reader (usually strings.Reader or os.File)
-func Compile(progReader io.Reader) [1 << 16]uint8 {
+func Compile(progReader io.Reader, syn *Syntax) [1 << 16]uint8 {
 
 	bin := [1 << 16]uint8{}
 	offset := uint16(0x00)
@@ -225,7 +233,7 @@ func Compile(progReader io.Reader) [1 << 16]uint8 {
 
 		switch insType {
 		case nodeInstruction:
-			code := assemble(ins, ops)
+			code := assemble(ins, ops, syn)
 			if code == nil {
 				panic(fmt.Sprintf("failed to build instruction %s %v at %d: empty code returned", ins, ops, lineNum))
 			}

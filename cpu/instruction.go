@@ -2,14 +2,12 @@ package cpu
 
 import (
 	"fmt"
+
+	"github.com/sshaman1101/uvm/asm"
 )
 
 const (
-	_ = iota
-	operandValue
-	operandRegister
-	operandAddress
-
+	// todo: move it to the `asm` package
 	asmNOP  = 0x00
 	asmJUMP = 0x01
 	asmPUSH = 0x02
@@ -25,24 +23,24 @@ const (
 )
 
 type operand struct {
-	opType int
+	opType asm.OperandType
 	value  uint8
 }
 
 // checkOperand checks that given value can be
 // an operand of the expected type.
 // returns human readable name for debug
-func checkOperand(v uint8, typ int) string {
+func checkOperand(v uint8, typ asm.OperandType) string {
 	switch typ {
-	case operandValue:
+	case asm.OperandVal:
 		// value can be any value, nothing to do here
 		return fmt.Sprintf("#%d", v)
-	case operandRegister:
+	case asm.OperandReg:
 		if v >= RegisterCount {
 			panic("invalid register operand")
 		}
 		return fmt.Sprintf("r%d", v)
-	case operandAddress:
+	case asm.OperandAddr:
 		if int(v) >= ROMSize {
 			panic("mem address operand is out of memory")
 		}
@@ -58,7 +56,7 @@ type instruction struct {
 	// what to do
 	opCode uint8
 	// how many operands we need to fetch from memory
-	operandCount uint16
+	operandCount int
 	// on which data we need to preform operation
 	operands []operand
 }
@@ -122,36 +120,28 @@ func (in *instruction) execute(cpu *CPU) {
 // decodeInstruction checks that given opcode exists,
 // if so, annotates it with desired operand types
 // and the instruction name (just for the debug purposes).
-func decodeInstruction(v uint8) instruction {
-	var m = map[uint8]instruction{
-		// do nothing
-		asmNOP: {name: "NOP", operandCount: 0},
-		// load new address to PC
-		asmJUMP: {name: "JUMP", operandCount: 2, operands: []operand{{opType: operandAddress}, {opType: operandAddress}}},
-		// PUSH r1
-		asmPUSH: {name: "PUSH", operandCount: 1, operands: []operand{{opType: operandRegister}}},
-		// POP r1
-		asmPOP: {name: "POP", operandCount: 1, operands: []operand{{opType: operandRegister}}},
-		// stop all the things
-		asmHALT: {name: "HALT", operandCount: 0},
-
-		// ADD r1 + r2
-		asmADDRegReg: {name: "ADD", operandCount: 2, operands: []operand{{opType: operandRegister}, {opType: operandRegister}}},
-		// ADD reg + #val
-		asmADDRegVal: {name: "ADD", operandCount: 2, operands: []operand{{opType: operandRegister}, {opType: operandValue}}},
-		// MOV r1 <- r2
-		asmMOVRegReg: {name: "MOV", operandCount: 2, operands: []operand{{opType: operandRegister}, {opType: operandRegister}}},
-		// MOV r1 <- #val
-		asmMOVRegVal: {name: "MOV", operandCount: 2, operands: []operand{{opType: operandRegister}, {opType: operandValue}}},
-		// MOV r1 <- $addr
-		asmMOVRegAddr: {name: "MOV", operandCount: 3, operands: []operand{{opType: operandRegister}, {opType: operandAddress}, {opType: operandAddress}}},
-	}
-
-	ins, ok := m[v]
+func (cpu *CPU) decodeInstruction(v uint8) instruction {
+	operandsForOpCode, ok := (*cpu.opCodes)[v]
 	if !ok {
 		panic(fmt.Sprintf("invalid instruiction %2x", v))
 	}
 
-	ins.opCode = v
-	return ins
+	var instructionOperands []operand
+	for _, op := range operandsForOpCode {
+		// note: just a dirty crutch to add two address bytes for instruction.
+		// Need find a smarter way to handle this situation.
+		if op == asm.OperandAddr {
+			instructionOperands = append(instructionOperands, operand{opType: asm.OperandAddr}, operand{opType: asm.OperandAddr})
+		} else {
+			instructionOperands = append(instructionOperands, operand{opType: op})
+		}
+	}
+
+	return instruction{
+		// todo: WTF with name?
+		name:         fmt.Sprintf("%02x", v),
+		opCode:       v,
+		operandCount: len(instructionOperands),
+		operands:     instructionOperands,
+	}
 }

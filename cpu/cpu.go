@@ -2,6 +2,8 @@ package cpu
 
 import (
 	"fmt"
+
+	"github.com/sshaman1101/uvm/asm"
 )
 
 const (
@@ -32,9 +34,12 @@ type CPU struct {
 
 	// program counter
 	pc uint16
+
+	// op codes for this instance
+	opCodes *asm.OpCodes
 }
 
-func NewCPU() *CPU {
+func NewCPU(codes *asm.OpCodes) *CPU {
 	return &CPU{
 		ROM:       [ROMSize]uint8{},
 		RAM:       [RAMSize]uint8{},
@@ -42,11 +47,12 @@ func NewCPU() *CPU {
 		stack:     newStack(StackDepth),
 		flags:     &flags{},
 		pc:        0,
+		opCodes:   codes,
 	}
 }
 
 func (cpu *CPU) reset() {
-	cpu = NewCPU()
+	cpu = NewCPU(cpu.opCodes)
 }
 
 func (cpu *CPU) Run() {
@@ -57,7 +63,7 @@ func (cpu *CPU) Run() {
 
 		// decode instruction
 		// note: panics on invalid input
-		nextInstruction := decodeInstruction(v)
+		nextInstruction := cpu.decodeInstruction(v)
 
 		// debug
 		fmt.Printf("instruction %s at %d\n", nextInstruction.name, cpu.pc)
@@ -69,7 +75,7 @@ func (cpu *CPU) Run() {
 		// cpu.pc += nextInstruction.operandCount
 
 		// load operands
-		for i := uint16(0); i < nextInstruction.operandCount; i++ {
+		for i := 0; i < nextInstruction.operandCount; i++ {
 			// calculate next mem address
 			cpu.pc++
 			// fetch memory

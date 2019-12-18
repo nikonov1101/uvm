@@ -7,20 +7,6 @@ import (
 	"github.com/sshaman1101/uvm/cpu"
 )
 
-var byteCode = [cpu.ROMSize]uint8{
-	0x21, 0x00, 0x03, // mov r0, #3,
-	0x21, 0x01, 0x02, // mov r1, #2
-	0x10, 0x00, 0x01, // add r0, r1 (store result in r1)
-	0x00, 0x00, // NOP, NOP
-	0x02, 0x00, // PUSH r1
-	0x00, 0x00, // NOP, NOP
-	0x03, 0x05, // POP r5
-	0x22, 0x3, 0x19, 0x00, // mov r3, $0015
-	0x00,             // NOP
-	0x01, 0xFF, 0x00, // JUMP to $00FF (see prog modification in main() func)
-	0xaa, // just a value at addr = 0x19
-}
-
 var asmCode = `
 ; check addition
 MOV r0, #3
@@ -52,10 +38,12 @@ HALT
 `
 
 func main() {
-	rd := strings.NewReader(asmCode)
-	p := asm.Compile(rd)
+	syn, opCodes := asm.LoadSyntax("./syntax.yaml")
 
-	uCPU := cpu.NewCPU()
+	rd := strings.NewReader(asmCode)
+	p := asm.Compile(rd, &syn)
+
+	uCPU := cpu.NewCPU(&opCodes)
 	uCPU.ROM = p
 	uCPU.Run()
 }

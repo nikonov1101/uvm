@@ -1,0 +1,23 @@
+NOP:
+  0x00: []
+
+JUMP:
+  0x01: ["addr"]
+
+PUSH:
+  0x02: ["reg"]
+
+POP:
+  0x03: ["reg"]
+
+HALT:
+  0x09: []
+
+ADD:
+  0x10: ["reg", "reg"]
+  0x11: ["reg", "val"]
+
+MOV:
+  0x20: ["reg", "reg"]
+  0x21: ["reg", "val"]
+  0x22: ["reg", "addr"]
