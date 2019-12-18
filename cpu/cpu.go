@@ -35,11 +35,11 @@ type CPU struct {
 	// program counter
 	pc uint16
 
-	// op codes for this instance
-	opCodes *asm.OpCodes
+	// syntax and opcodes
+	syn *asm.Syntax
 }
 
-func NewCPU(codes *asm.OpCodes) *CPU {
+func NewCPU(syn *asm.Syntax) *CPU {
 	return &CPU{
 		ROM:       [ROMSize]uint8{},
 		RAM:       [RAMSize]uint8{},
@@ -47,12 +47,8 @@ func NewCPU(codes *asm.OpCodes) *CPU {
 		stack:     newStack(StackDepth),
 		flags:     &flags{},
 		pc:        0,
-		opCodes:   codes,
+		syn:       syn,
 	}
-}
-
-func (cpu *CPU) reset() {
-	cpu = NewCPU(cpu.opCodes)
 }
 
 func (cpu *CPU) Run() {

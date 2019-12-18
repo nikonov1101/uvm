@@ -28,7 +28,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	_, opCodes := asm.LoadSyntax(*syntaxFile)
+	syntax := asm.LoadSyntax(*syntaxFile)
 
 	romFile := os.Args[1]
 	image, err := ioutil.ReadFile(romFile)
@@ -46,7 +46,7 @@ func main() {
 	var rom = [cpu.ROMSize]uint8{}
 	copy(rom[:], image)
 
-	uCPU := cpu.NewCPU(&opCodes)
+	uCPU := cpu.NewCPU(&syntax)
 	uCPU.ROM = rom
 	uCPU.Run()
 }

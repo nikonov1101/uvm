@@ -26,7 +26,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	syn, _ := asm.LoadSyntax(*syntaxFile)
+	syn := asm.LoadSyntax(*syntaxFile)
 
 	in, out := os.Args[1], os.Args[2]
 	fmt.Printf("Using %s as input file, store results in %s\n", in, out)

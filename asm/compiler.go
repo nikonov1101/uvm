@@ -13,7 +13,6 @@ import (
 
 type (
 	Syntax      = map[string]map[uint8][]OperandType
-	OpCodes     = map[uint8][]OperandType
 	OperandType string
 
 	nodeType uint8
@@ -30,7 +29,7 @@ const (
 	nodeByte
 )
 
-func LoadSyntax(p string) (Syntax, OpCodes) {
+func LoadSyntax(p string) Syntax {
 	b, err := ioutil.ReadFile(p)
 	if err != nil {
 		panic(fmt.Sprintf("failed to load syntax from %s: %v", p, err))
@@ -52,14 +51,7 @@ func LoadSyntax(p string) (Syntax, OpCodes) {
 		fmt.Println()
 	}
 
-	opCodes := map[uint8][]OperandType{}
-	for _, ops := range sst {
-		for code, args := range ops {
-			opCodes[code] = args
-		}
-	}
-
-	return sst, opCodes
+	return sst
 }
 
 func newNodeType(s string) nodeType {

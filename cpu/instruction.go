@@ -120,16 +120,31 @@ func (in *instruction) execute(cpu *CPU) {
 // decodeInstruction checks that given opcode exists,
 // if so, annotates it with desired operand types
 // and the instruction name (just for the debug purposes).
-func (cpu *CPU) decodeInstruction(v uint8) instruction {
-	operandsForOpCode, ok := (*cpu.opCodes)[v]
+func (cpu *CPU) decodeInstruction(opcode uint8) instruction {
+	var operandsForOpCode []asm.OperandType
+	var ok bool
+	var mnemonic string
+
+	// we'd like to have a mnemonic for given opcode,
+	// so walk through the whole syntax definition.
+	for name, opcodes := range *cpu.syn {
+		// does this mnemonic implements given opcode?
+		operandsForOpCode, ok = opcodes[opcode]
+		if !ok {
+			continue
+		}
+		mnemonic = name
+		break
+	}
+
 	if !ok {
-		panic(fmt.Sprintf("invalid instruiction %2x", v))
+		panic(fmt.Sprintf("invalid instruiction %2x", opcode))
 	}
 
 	var instructionOperands []operand
 	for _, op := range operandsForOpCode {
 		// note: just a dirty crutch to add two address bytes for instruction.
-		// Need find a smarter way to handle this situation.
+		// Needv to find a smarter way to handle such situation.
 		if op == asm.OperandAddr {
 			instructionOperands = append(instructionOperands, operand{opType: asm.OperandAddr}, operand{opType: asm.OperandAddr})
 		} else {
@@ -139,8 +154,8 @@ func (cpu *CPU) decodeInstruction(v uint8) instruction {
 
 	return instruction{
 		// todo: WTF with name?
-		name:         fmt.Sprintf("%02x", v),
-		opCode:       v,
+		name:         mnemonic,
+		opCode:       opcode,
 		operandCount: len(instructionOperands),
 		operands:     instructionOperands,
 	}
