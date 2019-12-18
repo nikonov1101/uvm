@@ -1,2 +1,4 @@
 uasm
-test.bin
+uvm
+*.bin
+

@@ -134,7 +134,7 @@ func parseTextOperand(op string, typ OperandType) (uint8, uint8, error) {
 		hi := uint8(val >> 8)
 		return lo, hi, nil
 	default:
-		return 0, 0, fmt.Errorf("unknown type %d", typ)
+		return 0, 0, fmt.Errorf("unknown type %s", typ)
 	}
 }
 
