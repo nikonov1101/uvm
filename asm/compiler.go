@@ -86,45 +86,24 @@ func (n nodeType) String() string {
 func parseTextOperand(op string, typ OperandType) (uint8, uint8, error) {
 	switch typ {
 	case OperandReg:
-		if op[0] != 'r' {
-			return 0, 0, fmt.Errorf("invalid register definition")
-		}
-		if op[1] < '0' && op[1] > '9' {
-			return 0, 0, fmt.Errorf("invalid register name %s", op)
-		}
+		v, err := asRegister(op)
+		return v, 0, err
 
-		return op[1] - '0', 0, nil
 	case OperandVal:
-		if op[0] != '#' {
-			return 0, 0, fmt.Errorf("invalid value definition")
-		}
+		v, err := asValue(op)
+		return v, 0, err
 
-		// remove the # char
-		v := op[1:]
-		// parse as uint8
-		val, err := strconv.ParseUint(v, 16, 8)
-		if err != nil {
-			return 0, 0, err
-		}
-
-		return uint8(val), 0, err
-	case OperandAddr: // addr
-		if op[0] != '$' {
-			return 0, 0, fmt.Errorf("invalid addr definition")
-		}
-
-		// remove the $ char
-		v := op[1:]
-		// parse as uint16
-		val, err := strconv.ParseUint(v, 16, 16)
+	case OperandAddr:
+		v, err := asAddress(op)
 		if err != nil {
 			return 0, 0, err
 		}
 
 		// present as two 8bit values
-		lo := uint8(val)
-		hi := uint8(val >> 8)
+		lo := uint8(v)
+		hi := uint8(v >> 8)
 		return lo, hi, nil
+
 	default:
 		return 0, 0, fmt.Errorf("unknown type %s", typ)
 	}
@@ -242,7 +221,10 @@ func Compile(progReader io.Reader, syn *Syntax) [1 << 16]uint8 {
 			}
 
 			// parse given address
-			addr := asAddress(ops[0], lineNum)
+			addr, err := asAddress(ops[0])
+			if err != nil {
+				panic(fmt.Sprintf("failed to parse addr `%s` at line %d: %v", ops[0], lineNum, err))
+			}
 
 			// put the following program right after the given address
 			offset = addr
@@ -253,8 +235,15 @@ func Compile(progReader io.Reader, syn *Syntax) [1 << 16]uint8 {
 			}
 
 			// parse "operands"
-			addr := asAddress(ops[0], lineNum)
-			v := asValue(ops[1], lineNum)
+			addr, err := asAddress(ops[0])
+			if err != nil {
+				panic(fmt.Sprintf("failed to parse addr `%s` at line %d: %v", ops[0], lineNum, err))
+			}
+
+			v, err := asValue(ops[1])
+			if err != nil {
+				panic(fmt.Sprintf("failed to parse value `%s` at line %d: %v", ops[1], lineNum, err))
+			}
 
 			bin[addr] = v
 		}
@@ -263,28 +252,42 @@ func Compile(progReader io.Reader, syn *Syntax) [1 << 16]uint8 {
 	return bin
 }
 
-func asAddress(s string, ln int) uint16 {
+func asAddress(s string) (uint16, error) {
 	if s[0] != '$' {
-		panic(fmt.Sprintf("syntax error: invalid mem address (must starts with \"$\") at line %d", ln))
+		return 0, fmt.Errorf("syntax error: mem address (must starts with \"$\")")
 	}
 
 	strVal := s[1:]
 	addr, err := strconv.ParseUint(strVal, 16, 16)
 	if err != nil {
-		panic(fmt.Sprintf("failed to parse addr `%s` at line %d: %v", strVal, ln, err))
+		return 0, err
 	}
-	return uint16(addr)
+
+	return uint16(addr), nil
 }
 
-func asValue(s string, ln int) uint8 {
+func asValue(s string) (uint8, error) {
 	if s[0] != '#' {
-		panic(fmt.Sprintf("syntax error: invalid value (must starts with \"#\") at line %d", ln))
+		return 0, fmt.Errorf("syntax error: invalid value (must starts with \"#\")")
 	}
 
 	strVal := s[1:]
 	v, err := strconv.ParseUint(strVal, 16, 8)
 	if err != nil {
-		panic(fmt.Sprintf("failed to parse value `%s` at line %d: %v", strVal, ln, err))
+		return 0, err
 	}
-	return uint8(v)
+
+	return uint8(v), nil
+}
+
+func asRegister(s string) (uint8, error) {
+	if s[0] != 'r' {
+		return 0, fmt.Errorf("syntax error: invalid register name (must start with \"r\")")
+	}
+
+	if len(s) != 2 || s[1] < '0' || s[1] > '7' {
+		return 0, fmt.Errorf("register name must be r0..r7")
+	}
+
+	return s[1] - '0', nil
 }
