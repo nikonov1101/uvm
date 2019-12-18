@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/sshaman1101/uvm/asm"
+	"github.com/sshaman1101/uvm/defines"
 )
 
 const (
@@ -36,12 +37,12 @@ func checkOperand(v uint8, typ asm.OperandType) string {
 		// value can be any value, nothing to do here
 		return fmt.Sprintf("#%d", v)
 	case asm.OperandReg:
-		if v >= RegisterCount {
+		if v >= defines.RegisterCount {
 			panic("invalid register operand")
 		}
 		return fmt.Sprintf("r%d", v)
 	case asm.OperandAddr:
-		if int(v) >= ROMSize {
+		if int(v) >= defines.ROMSize {
 			panic("mem address operand is out of memory")
 		}
 		return fmt.Sprintf("$%d", v)

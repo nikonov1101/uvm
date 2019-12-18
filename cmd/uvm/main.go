@@ -8,6 +8,7 @@ import (
 
 	"github.com/sshaman1101/uvm/asm"
 	"github.com/sshaman1101/uvm/cpu"
+	"github.com/sshaman1101/uvm/defines"
 )
 
 var syntaxFile = flag.String("syntax", "syntax.yaml", "path to syntax definition")
@@ -37,13 +38,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	if len(image) > cpu.ROMSize {
+	if len(image) > defines.ROMSize {
 		fmt.Printf("WARN: ROM image does not fits into memory "+
 			"(size = %d, but %d bytes available).\n"+
-			"Image will be truncated.\n", len(image), cpu.ROMSize)
+			"Image will be truncated.\n", len(image), defines.ROMSize)
 	}
 
-	var rom = [cpu.ROMSize]uint8{}
+	var rom = [defines.ROMSize]uint8{}
 	copy(rom[:], image)
 
 	uCPU := cpu.NewCPU(&syntax)

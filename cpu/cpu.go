@@ -4,13 +4,7 @@ import (
 	"fmt"
 
 	"github.com/sshaman1101/uvm/asm"
-)
-
-const (
-	ROMSize       = 1 << 16
-	RAMSize       = 512
-	RegisterCount = 8
-	StackDepth    = 32
+	"github.com/sshaman1101/uvm/defines"
 )
 
 type flags struct {
@@ -25,10 +19,10 @@ func (f *flags) String() string {
 }
 
 type CPU struct {
-	ROM [ROMSize]uint8
-	RAM [RAMSize]uint8
+	ROM [defines.ROMSize]uint8
+	RAM [defines.RAMSize]uint8
 
-	registers [8]uint8
+	registers [defines.RegisterCount]uint8
 	stack     *stack
 	flags     *flags
 
@@ -41,10 +35,10 @@ type CPU struct {
 
 func NewCPU(syn *asm.Syntax) *CPU {
 	return &CPU{
-		ROM:       [ROMSize]uint8{},
-		RAM:       [RAMSize]uint8{},
-		registers: [8]uint8{},
-		stack:     newStack(StackDepth),
+		ROM:       [defines.ROMSize]uint8{},
+		RAM:       [defines.RAMSize]uint8{},
+		registers: [defines.RegisterCount]uint8{},
+		stack:     newStack(defines.StackDepth),
 		flags:     &flags{},
 		pc:        0,
 		syn:       syn,
@@ -62,7 +56,7 @@ func (cpu *CPU) Run() {
 		nextInstruction := cpu.decodeInstruction(v)
 
 		// debug
-		fmt.Printf("instruction %s at %d\n", nextInstruction.name, cpu.pc)
+		fmt.Printf("instruction %s at PC = %d (0x%02x)\n", nextInstruction.name, cpu.pc, cpu.pc)
 
 		// note: just for testing purposes now re're using
 		//  PC as MAR/MDR to load operands, I'll fix that later (probably).
@@ -91,18 +85,22 @@ func (cpu *CPU) Run() {
 
 		nextInstruction.execute(cpu)
 
-		if cpu.flags.halt {
-			fmt.Printf("CPU were HALTed at %2x\n", cpu.pc)
-			return
-		}
-
 		// dump CPU state
+		fmt.Println("======== CPU state ========")
 		fmt.Printf("PC = %d\n", cpu.pc)
-		fmt.Printf("flags = %v\n", cpu.flags)
-		fmt.Printf("registers:\n")
-		for i := 0; i < RegisterCount; i++ {
-			fmt.Printf("  r%d = %02x", i, cpu.registers[i])
+		fmt.Printf("flags:\n  %v\n", cpu.flags)
+		fmt.Printf("registers:\n  ")
+		for i := 0; i < defines.RegisterCount; i++ {
+			fmt.Printf("r%d = %02x", i, cpu.registers[i])
+			if i+1 != defines.RegisterCount {
+				fmt.Printf(" | ")
+			}
 		}
 		fmt.Println()
+		fmt.Printf("===========================\n\n")
+
+		if cpu.flags.halt {
+			return
+		}
 	}
 }

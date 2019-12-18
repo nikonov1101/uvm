@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/sshaman1101/uvm/defines"
 	"gopkg.in/yaml.v2"
 )
 
@@ -285,7 +286,7 @@ func asRegister(s string) (uint8, error) {
 		return 0, fmt.Errorf("syntax error: invalid register name (must start with \"r\")")
 	}
 
-	if len(s) != 2 || s[1] < '0' || s[1] > '7' {
+	if len(s) != 2 || s[1] < '0' || s[1] >= strconv.Itoa(defines.RegisterCount)[0] {
 		return 0, fmt.Errorf("register name must be r0..r7")
 	}
 
