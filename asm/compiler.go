@@ -13,10 +13,41 @@ import (
 //  op: r, #
 //  op: r, $
 
+type nodeType uint8
+
+func newNodeType(s string) nodeType {
+	switch s {
+	case ".text":
+		return nodeText
+	case ".byte":
+		return nodeByte
+	default:
+		return nodeInstruction
+	}
+}
+
+func (n nodeType) String() string {
+	switch n {
+	case nodeInstruction:
+		return "instruction"
+	case nodeText:
+		return ".text"
+	case nodeByte:
+		return ".byte"
+	default:
+		return "unknown"
+	}
+}
+
 const (
 	opTypeReg  = 1
 	opTypeVal  = 2
 	opTypeAddr = 3
+
+	_ nodeType = iota
+	nodeInstruction
+	nodeText
+	nodeByte
 )
 
 // parseTextOperand parses and returns its byte-code representation.
@@ -188,31 +219,23 @@ func Compile(progReader io.Reader) [1 << 16]uint8 {
 
 		// decide on what we're looking right now - operator or macro?
 		// todo: labels
-		var insType string
-		switch ins {
-		case ".text":
-			insType = "TEXT"
-		case ".byte":
-			insType = "BYTE"
-		default:
-			insType = "INSTR"
-		}
+		insType := newNodeType(ins)
 
-		fmt.Printf("ASM: %s = `%s`, OPERANDS = `%s`\n", insType, ins, ops)
+		fmt.Printf("ASM:%02d:\t`%s`\toperands: \t%s\n", lineNum, ins, ops)
 
-		if insType == "INSTR" {
+		switch insType {
+		case nodeInstruction:
 			code := assemble(ins, ops)
 			if code == nil {
 				panic(fmt.Sprintf("failed to build instruction %s %v at %d: empty code returned", ins, ops, lineNum))
 			}
 
 			for i := range code {
-				// fmt.Printf("ASM: %04x: %02x)\n", offset, code[i])
 				bin[offset] = code[i]
 				offset++
 			}
 
-		} else if insType == "TEXT" {
+		case nodeText: // parse address behind .text macro, move mem pointer to that location
 			if len(ops) != 1 {
 				// we're expecting only memory address
 				panic(fmt.Sprintf("invalid .text syntax at line %d", lineNum))
@@ -223,8 +246,7 @@ func Compile(progReader io.Reader) [1 << 16]uint8 {
 
 			// put the following program right after the given address
 			offset = addr
-
-		} else if insType == "BYTE" {
+		case nodeByte: // parse addr and value at .byte macro, but the byte at the given address
 			if len(ops) != 2 {
 				// we're expecting memory address and one byte value
 				panic(fmt.Sprintf("invalid .byte syntax at line %d", lineNum))
@@ -236,8 +258,6 @@ func Compile(progReader io.Reader) [1 << 16]uint8 {
 
 			bin[addr] = v
 		}
-
-		fmt.Println()
 	}
 
 	return bin
