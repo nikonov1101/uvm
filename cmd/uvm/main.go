@@ -6,12 +6,9 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/sshaman1101/uvm/asm"
 	"github.com/sshaman1101/uvm/cpu"
 	"github.com/sshaman1101/uvm/defines"
 )
-
-var syntaxFile = flag.String("syntax", "syntax.yaml", "path to syntax definition")
 
 var usageFunc = func() {
 	_, _ = fmt.Fprintf(flag.CommandLine.Output(), "Usage %s <rom.bin>\n", os.Args[0])
@@ -29,8 +26,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	syntax := asm.LoadSyntax(*syntaxFile)
-
 	romFile := os.Args[1]
 	image, err := ioutil.ReadFile(romFile)
 	if err != nil {
@@ -47,7 +42,7 @@ func main() {
 	var rom = [defines.ROMSize]uint8{}
 	copy(rom[:], image)
 
-	uCPU := cpu.NewCPU(&syntax)
+	uCPU := cpu.NewCPU()
 	uCPU.ROM = rom
 	uCPU.Run()
 }

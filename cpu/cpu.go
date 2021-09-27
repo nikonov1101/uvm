@@ -27,12 +27,9 @@ type CPU struct {
 
 	// program counter
 	pc uint16
-
-	// syntax and opcodes
-	syn *asm.Syntax
 }
 
-func NewCPU(syn *asm.Syntax) *CPU {
+func NewCPU() *CPU {
 	return &CPU{
 		ROM:       [defines.ROMSize]uint8{},
 		RAM:       [defines.RAMSize]uint8{},
@@ -40,7 +37,6 @@ func NewCPU(syn *asm.Syntax) *CPU {
 		stack:     newStack(defines.StackDepth),
 		flags:     &flags{},
 		pc:        0,
-		syn:       syn,
 	}
 }
 
@@ -107,7 +103,7 @@ func (cpu *CPU) decodeInstruction(opcode uint8) instruction {
 
 	// we'd like to have a mnemonic for given opcode,
 	// so walk through the whole syntax definition.
-	for name, opcodes := range *cpu.syn {
+	for name, opcodes := range asm.Syntax {
 		// does this mnemonic implements given opcode?
 		operandsForOpCode, ok = opcodes[opcode]
 		if !ok {

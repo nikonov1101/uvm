@@ -8,28 +8,6 @@ import (
 	"github.com/sshaman1101/uvm/math"
 )
 
-const (
-	// todo: move it to the `asm` package
-	asmNOP   = 0x00
-	asmJUMP  = 0x01
-	asmPUSH  = 0x02
-	asmPOP   = 0x03
-	asmCLEAR = 0x04
-	asmINC   = 0x05
-	asmHALT  = 0x09
-
-	asmADDRegReg = 0x10
-	asmADDRegVal = 0x11
-
-	asmMOVRegReg = 0x20
-	asmMOVRegVal = 0x21
-	asmLPM       = 0x22
-
-	asmLOAD = 0x30
-
-	asmSTORE = 0x40
-)
-
 type operand struct {
 	opType asm.OperandType
 	value  uint8
@@ -40,7 +18,7 @@ type operand struct {
 // returns human readable name for debug
 func checkOperand(v uint8, typ asm.OperandType) string {
 	switch typ {
-	case asm.OperandVal:
+	case asm.OperandValue:
 		// value can be any value, nothing to do here
 		return fmt.Sprintf("#%02X", v)
 	case asm.OperandReg:
@@ -100,15 +78,15 @@ func (in *instruction) asAddress(loOp, hiOp int) uint16 {
 //  the CPU executes the instruction, not vise versa.
 func (in *instruction) execute(cpu *CPU) {
 	switch in.opCode {
-	case asmNOP:
+	case asm.OpNOP:
 		// just do nothing
 
-	case asmJUMP:
+	case asm.OpJUMP:
 		// go to address, DO NOT increment PC by one
 		cpu.pc = in.asAddress(0, 1)
 		return
 
-	case asmADDRegReg:
+	case asm.OpADDRegReg:
 		r0 := in.operands[0].value
 		r1 := in.operands[1].value
 
@@ -117,7 +95,8 @@ func (in *instruction) execute(cpu *CPU) {
 
 		cpu.flags.zero = result == 0
 		cpu.flags.carry = carry
-	case asmADDRegVal:
+
+	case asm.OpADDRegVal:
 		reg := in.operands[0].value
 		value := in.operands[1].value
 
@@ -127,46 +106,59 @@ func (in *instruction) execute(cpu *CPU) {
 		cpu.flags.zero = result == 0
 		cpu.flags.carry = carry
 
-	case asmMOVRegVal:
-		cpu.registers[in.operands[0].value] = in.operands[1].value
-	case asmMOVRegReg:
+	case asm.OpMOVRegVal:
+		reg := in.operands[0].value
+		val := in.operands[1].value
+		cpu.registers[reg] = val
+		// todo: flags?
+
+	case asm.OpMOVRegReg:
 		dstReg := in.operands[0].value
 		srcReg := in.operands[1].value
 		cpu.registers[dstReg] = cpu.registers[srcReg]
+		// todo: flags on dstReg value?
 
-	case asmLPM: // load from program memory
+	case asm.OpLPM: // load from program memory
 		// calculate 16 bit address in ROM
 		addr := in.asAddress(1, 2)
 		// load value in the given register
 		cpu.registers[in.operands[0].value] = cpu.ROM[addr]
 		// todo: flags?
 
-	case asmLOAD:
+	case asm.OpLOAD:
 		addr := in.asAddress(1, 2)
 		reg := in.operands[0].value
 		val := cpu.RAM[addr]
 		cpu.registers[reg] = val
 		cpu.flags.zero = val == 0
-	case asmSTORE: // addr, reg
+
+	case asm.OpSTORE: // addr, reg
 		addr := in.asAddress(0, 1)
 		reg := in.operands[2].value
 		val := cpu.registers[reg]
 		cpu.RAM[addr] = val
 
-	case asmHALT:
+	case asm.OpHALT:
 		cpu.flags.halt = true
 		return
 
-	case asmPUSH:
-		regVal := cpu.registers[in.operands[0].value]
-		cpu.stack.push(regVal)
-	case asmPOP:
-		cpu.registers[in.operands[0].value] = cpu.stack.pop()
-	case asmCLEAR:
+	case asm.OpPUSH:
+		reg := in.operands[0].value
+		val := cpu.registers[reg]
+		cpu.stack.push(val)
+
+	case asm.OpPOP:
+		reg := in.operands[0].value
+		val := cpu.stack.pop()
+		cpu.registers[reg] = val
+		// todo: flags for val?
+
+	case asm.OpCLEAR:
 		reg := in.operands[0].value
 		cpu.registers[reg] = 0
 		cpu.flags.zero = true
-	case asmINC:
+
+	case asm.OpINC:
 		reg := in.operands[0].value
 		val := cpu.registers[reg]
 

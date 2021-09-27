@@ -81,13 +81,13 @@ func TestParseTextOperandValues(t *testing.T) {
 	}
 
 	for _, tt := range validInput {
-		v, _, err := parseTextOperand(tt.name, OperandVal)
+		v, _, err := parseTextOperand(tt.name, OperandValue)
 		require.NoError(t, err)
 		assert.Equal(t, tt.expected, v, tt.name)
 	}
 
 	for _, tt := range invaildInput {
-		_, _, err := parseTextOperand(tt, OperandVal)
+		_, _, err := parseTextOperand(tt, OperandValue)
 		require.Error(t, err, tt)
 	}
 }

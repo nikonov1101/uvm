@@ -8,8 +8,6 @@ import (
 	"github.com/sshaman1101/uvm/asm"
 )
 
-var syntaxFile = flag.String("syntax", "syntax.yaml", "path to syntax definition")
-
 var usageFunc = func() {
 	_, _ = fmt.Fprintf(flag.CommandLine.Output(), "Usage %s <src.asm> <output.bin>\n", os.Args[0])
 	flag.PrintDefaults()
@@ -26,8 +24,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	syn := asm.LoadSyntax(*syntaxFile)
-
 	in, out := os.Args[1], os.Args[2]
 	fmt.Printf("Using %s as input file, store results in %s\n", in, out)
 
@@ -37,7 +33,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	mem := asm.Compile(src, &syn)
+	mem := asm.Compile(src)
 	dst, err := os.OpenFile(out, os.O_CREATE|os.O_WRONLY, 0600)
 	if err != nil {
 		fmt.Printf("Failed to open output file %s: %v\n", out, err)

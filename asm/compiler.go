@@ -4,56 +4,27 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"strconv"
 	"strings"
 
 	"github.com/sshaman1101/uvm/defines"
-	"gopkg.in/yaml.v2"
 )
 
 type (
-	Syntax      = map[string]map[uint8][]OperandType
 	OperandType string
-
-	nodeType uint8
+	nodeType    uint8
 )
 
 const (
-	OperandReg  OperandType = "reg"
-	OperandVal  OperandType = "val"
-	OperandAddr OperandType = "addr"
+	OperandReg   OperandType = "reg"
+	OperandValue OperandType = "val"
+	OperandAddr  OperandType = "addr"
 
 	_ nodeType = iota
 	nodeInstruction
 	nodeText
 	nodeByte
 )
-
-func LoadSyntax(p string) Syntax {
-	b, err := ioutil.ReadFile(p)
-	if err != nil {
-		panic(fmt.Sprintf("failed to load syntax from %s: %v", p, err))
-	}
-
-	sst := map[string]map[uint8][]OperandType{}
-
-	if err := yaml.Unmarshal(b, &sst); err != nil {
-		panic(fmt.Sprintf("failed to unmarshal syntax: %v", err))
-	}
-
-	fmt.Println("Syntax loaded.")
-	fmt.Printf("%d instructions are available.\n", len(sst))
-	for ins, opts := range sst {
-		fmt.Printf("%s\n", ins)
-		for code, args := range opts {
-			fmt.Printf("    %02x %v\n", code, args)
-		}
-		fmt.Println()
-	}
-
-	return sst
-}
 
 func newNodeType(s string) nodeType {
 	switch s {
@@ -90,7 +61,7 @@ func parseTextOperand(op string, typ OperandType) (uint8, uint8, error) {
 		v, err := asRegister(op)
 		return v, 0, err
 
-	case OperandVal:
+	case OperandValue:
 		v, err := asValue(op)
 		return v, 0, err
 
@@ -111,8 +82,8 @@ func parseTextOperand(op string, typ OperandType) (uint8, uint8, error) {
 }
 
 // assemble turns instruction and operands text into the machine codes
-func assemble(ins string, ops []string, syn *Syntax) []uint8 {
-	p, ok := (*syn)[ins]
+func assemble(ins string, ops []string) []uint8 {
+	p, ok := Syntax[ins]
 	if !ok {
 		panic(fmt.Sprintf("unknown instruction %s", ins))
 	}
@@ -145,7 +116,7 @@ func assemble(ins string, ops []string, syn *Syntax) []uint8 {
 			//    otherwise store only `lo` one.
 			if err == nil {
 				matched++
-				if expectedType == OperandReg || expectedType == OperandVal {
+				if expectedType == OperandReg || expectedType == OperandValue {
 					operandStack = append(operandStack, lo)
 				} else {
 					operandStack = append(operandStack, lo, hi)
@@ -165,7 +136,7 @@ func assemble(ins string, ops []string, syn *Syntax) []uint8 {
 }
 
 // Compile compiles program loaded from reader (usually strings.Reader or os.File)
-func Compile(textReader io.Reader, syn *Syntax) [1 << 16]uint8 {
+func Compile(textReader io.Reader) [1 << 16]uint8 {
 
 	bin := [defines.ROMSize]uint8{}
 	offset := uint16(0x00)
@@ -205,7 +176,7 @@ func Compile(textReader io.Reader, syn *Syntax) [1 << 16]uint8 {
 
 		switch insType {
 		case nodeInstruction:
-			code := assemble(ins, ops, syn)
+			code := assemble(ins, ops)
 			if code == nil {
 				panic(fmt.Sprintf("failed to build instruction %s %v at %d: empty code returned", ins, ops, lineNum))
 			}
