@@ -165,13 +165,13 @@ func assemble(ins string, ops []string, syn *Syntax) []uint8 {
 }
 
 // Compile compiles program loaded from reader (usually strings.Reader or os.File)
-func Compile(progReader io.Reader, syn *Syntax) [1 << 16]uint8 {
+func Compile(textReader io.Reader, syn *Syntax) [1 << 16]uint8 {
 
-	bin := [1 << 16]uint8{}
+	bin := [defines.ROMSize]uint8{}
 	offset := uint16(0x00)
 	lineNum := 0
 
-	sk := bufio.NewScanner(progReader)
+	sk := bufio.NewScanner(textReader)
 	for sk.Scan() {
 		lineNum++
 

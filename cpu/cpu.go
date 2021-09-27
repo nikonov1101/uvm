@@ -8,14 +8,13 @@ import (
 )
 
 type flags struct {
-	overflow bool
-	zero     bool
-	carry    bool
-	halt     bool
+	zero  bool
+	carry bool
+	halt  bool
 }
 
 func (f *flags) String() string {
-	return fmt.Sprintf("O: %v | Z: %v | C: %v | H: %v", f.overflow, f.zero, f.carry, f.halt)
+	return fmt.Sprintf("Z: %v | C: %v | H: %v", f.zero, f.carry, f.halt)
 }
 
 type CPU struct {
@@ -53,39 +52,33 @@ func (cpu *CPU) Run() {
 
 		// decode instruction
 		// note: panics on invalid input
-		nextInstruction := cpu.decodeInstruction(v)
-
-		// debug
-		fmt.Printf("instruction %s at PC = %d (0x%02x)\n", nextInstruction.name, cpu.pc, cpu.pc)
-
-		// note: just for testing purposes now re're using
-		//  PC as MAR/MDR to load operands, I'll fix that later (probably).
-		// add offset to PC, next instruction must be at
-		// PC+(operand count), thus we assume each operand size is one uint8
-		// cpu.pc += nextInstruction.operandCount
+		next := cpu.decodeInstruction(v)
 
 		// load operands
-		for i := 0; i < nextInstruction.operandCount; i++ {
+		for i := 0; i < next.operandCount; i++ {
 			// calculate next mem address
 			cpu.pc++
 			// fetch memory
 			// todo: do it via something like MAR/MDR, as real hardware do
 			//  or just emulate it, at least it will looks hacky.
 			given := cpu.ROM[cpu.pc]
-			expected := nextInstruction.operands[i]
+			expected := next.operands[i]
 
 			// sanity check
 			opName := checkOperand(given, expected.opType)
-
+			// XXX debug
 			fmt.Printf("  operand %s loaded\n", opName)
 
-			// store withing instruction
-			nextInstruction.operands[i].value = given
+			// store within instruction
+			next.operands[i].value = given
 		}
 
-		nextInstruction.execute(cpu)
+		// XXX print instruction with operators loaded
+		fmt.Printf("at PC = %d (0x%02x) -> RUN %s\n", cpu.pc, cpu.pc, next)
 
-		// dump CPU state
+		next.execute(cpu)
+
+		// dump CPU state after the each instruction
 		fmt.Println("======== CPU state ========")
 		fmt.Printf("PC = %d\n", cpu.pc)
 		fmt.Printf("flags:\n  %v\n", cpu.flags)
@@ -96,11 +89,53 @@ func (cpu *CPU) Run() {
 				fmt.Printf(" | ")
 			}
 		}
-		fmt.Println()
-		fmt.Printf("===========================\n\n")
+		fmt.Printf("\n===========================\n\n")
 
 		if cpu.flags.halt {
 			return
 		}
+	}
+}
+
+// decodeInstruction checks that given opcode exists,
+// if so, annotates it with desired operand types
+// and the instruction name (just for the debug purposes).
+func (cpu *CPU) decodeInstruction(opcode uint8) instruction {
+	var operandsForOpCode []asm.OperandType
+	var ok bool
+	var mnemonic string
+
+	// we'd like to have a mnemonic for given opcode,
+	// so walk through the whole syntax definition.
+	for name, opcodes := range *cpu.syn {
+		// does this mnemonic implements given opcode?
+		operandsForOpCode, ok = opcodes[opcode]
+		if !ok {
+			continue
+		}
+		mnemonic = name
+		break
+	}
+
+	if !ok {
+		panic(fmt.Sprintf("invalid instruiction %2x", opcode))
+	}
+
+	var instructionOperands []operand
+	for _, op := range operandsForOpCode {
+		// note: just a dirty crutch to add two address bytes for instruction.
+		// Need to find a smarter way to handle such situation.
+		if op == asm.OperandAddr {
+			instructionOperands = append(instructionOperands, operand{opType: asm.OperandAddr}, operand{opType: asm.OperandAddr})
+		} else {
+			instructionOperands = append(instructionOperands, operand{opType: op})
+		}
+	}
+
+	return instruction{
+		name:         mnemonic,
+		opCode:       opcode,
+		operandCount: len(instructionOperands),
+		operands:     instructionOperands,
 	}
 }
