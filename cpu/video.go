@@ -194,6 +194,8 @@ func (v *videoCard) serveWs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (v *videoCard) serveIndex(w http.ResponseWriter, r *http.Request) {
+	// TODO(nikonov): use embed
+	// TODO(nikonov): implement websocket reconnet on a client
 	bs, err := os.ReadFile("assets/index.html")
 	if err != nil {
 		panic(err)
