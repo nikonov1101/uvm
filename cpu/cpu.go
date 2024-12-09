@@ -2,7 +2,9 @@ package cpu
 
 import (
 	"fmt"
+	"strings"
 
+	colors "github.com/nikonov1101/colors.go"
 	"github.com/sshaman1101/uvm/asm"
 	"github.com/sshaman1101/uvm/defines"
 )
@@ -13,12 +15,12 @@ type flags struct {
 	halt  bool
 }
 
-func (f flags) String() string {
+func (f *flags) String() string {
 	return fmt.Sprintf("Z: %v | C: %v | H: %v", f.zero, f.carry, f.halt)
 }
 
 type CPU struct {
-	flags flags
+	flags *flags
 	// general-purpose registers are not memory-mapped (yet).
 	generalPurposeReg [defines.RegisterCount]uint8
 	// pc actually 24 bits wide
@@ -44,6 +46,7 @@ const (
 
 func NewCPU() *CPU {
 	return &CPU{
+		flags:              &flags{},
 		sp:                 defines.StackInitialAddr, // very end of the memory
 		pc:                 startSegment,
 		segmentSelectorReg: startSegment,
@@ -68,14 +71,15 @@ func (cpu *CPU) Run() {
 		// STAGE 1: decode instruction
 		// note: panics on invalid input
 		next := cpu.decodeInstruction(v)
+		var pcOffset uint32 = 0
 
 		// STAGE 2: fetch the operands from memory
-		for i := 0; i < len(next.operands); i++ {
+		for i := range next.operands {
 			// calculate next address
-			cpu.pc++
+			pcOffset++
 
 			// fetch next operand from the memory
-			given := cpu.mem[cpu.pc]
+			given := cpu.mem[cpu.pc+pcOffset]
 			expected := next.operands[i]
 
 			// sanity check
@@ -88,26 +92,18 @@ func (cpu *CPU) Run() {
 		}
 
 		// XXX print instruction with operators loaded
-		fmt.Printf("at PC = %d (0x%02x) -> RUN %s\n", cpu.pc, cpu.pc, next)
+		fmt.Printf("PC: %04X :: %v\n", cpu.pc, next)
+
+		// update PC with a number operands fetched,
+		// do this before the actual execution, so
+		// JUMP instructions may override the PC
+		cpu.pc += pcOffset + 1
 
 		// STAGE 3: execute the instruction
-		if jump := cpu.execute(next); !jump {
-			// point to the next instruction
-			cpu.pc++
-		}
+		cpu.execute(next)
 
-		// dump CPU state after the each instruction
-		fmt.Println("======== CPU state ========")
-		fmt.Printf("PC = %d\n", cpu.pc)
-		fmt.Printf("flags:\n  %v\n", cpu.flags)
-		fmt.Printf("registers:\n  ")
-		for i := 0; i < defines.RegisterCount; i++ {
-			fmt.Printf("r%d = %02x", i, cpu.generalPurposeReg[i])
-			if i+1 != defines.RegisterCount {
-				fmt.Printf(" | ")
-			}
-		}
-		fmt.Printf("\n===========================\n\n")
+		// XXX debug state on the fly
+		cpu.debug()
 
 		if cpu.flags.halt {
 			return
@@ -156,4 +152,35 @@ func (cpu *CPU) decodeInstruction(opcode uint8) instruction {
 		opCode:   opcode,
 		operands: instructionOperands,
 	}
+}
+
+func (cpu *CPU) debug() {
+	var regs []string
+	for i, r := range cpu.generalPurposeReg {
+		rs := fmt.Sprintf("0x%02X", r)
+		if r > 0 {
+			rs = colors.Yellow(rs)
+		}
+		regs = append(regs, fmt.Sprintf("r%d: %s", i, rs))
+	}
+
+	zs := "Z: false"
+	cs := "C: false"
+	hs := "H: false"
+	if cpu.flags.zero {
+		zs = fmt.Sprintf("Z: %s", colors.Green("TRUE"))
+	}
+	if cpu.flags.carry {
+		cs = fmt.Sprintf("C: %s", colors.Green("TRUE"))
+	}
+	if cpu.flags.halt {
+		hs = colors.Red("HALT: TRUE")
+	}
+
+	flags := fmt.Sprintf("%s | %s | %s", zs, cs, hs)
+	pc := colors.Cyan(fmt.Sprintf("0x%04X", cpu.pc))
+
+	fmt.Printf("\tnext pc: %s | flags: %s\n", pc, flags)
+	fmt.Printf("\t%s\n", strings.Join(regs, " "))
+	fmt.Println("=============================================")
 }

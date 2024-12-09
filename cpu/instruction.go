@@ -74,15 +74,35 @@ func (in instruction) asAddress(seg uint8, loOp, hiOp int) uint32 {
 //   - registers
 //   - flag register
 //   - program counter (when jumps)
-func (cpu *CPU) execute(in instruction) (isJUMP bool) {
+func (cpu *CPU) execute(in instruction) {
 	switch in.opCode {
 	case asm.OpNOP:
 		// just do nothing
 
 	case asm.OpJUMP:
-		// go to address, DO NOT increment PC by one
 		cpu.pc = in.asAddress(cpu.segmentSelectorReg, 0, 1)
-		isJUMP = true
+
+	case asm.OpJUMPIF_EQ:
+		if cpu.flags.zero {
+			cpu.pc = in.asAddress(cpu.segmentSelectorReg, 0, 1)
+		}
+
+	case asm.OpJUMPIF_NE:
+		if !cpu.flags.zero {
+			cpu.pc = in.asAddress(cpu.segmentSelectorReg, 0, 1)
+		}
+
+	case asm.OpCP:
+		r0 := cpu.generalPurposeReg[in.operands[0].value]
+		r1 := cpu.generalPurposeReg[in.operands[1].value]
+		cpu.flags.zero = r0 == r1
+		cpu.flags.carry = false
+
+	case asm.OpCPI:
+		r0 := cpu.generalPurposeReg[in.operands[0].value]
+		v1 := in.operands[1].value
+		cpu.flags.zero = r0 == v1
+		cpu.flags.carry = false
 
 	case asm.OpADDRegReg:
 		r0 := in.operands[0].value
@@ -108,13 +128,11 @@ func (cpu *CPU) execute(in instruction) (isJUMP bool) {
 		reg := in.operands[0].value
 		val := in.operands[1].value
 		cpu.generalPurposeReg[reg] = val
-		// todo: flags?
 
 	case asm.OpMOVRegReg:
 		dstReg := in.operands[0].value
 		srcReg := in.operands[1].value
 		cpu.generalPurposeReg[dstReg] = cpu.generalPurposeReg[srcReg]
-		// todo: flags on dstReg value?
 
 	case asm.OpLOAD: // LOAD reg <- $mem
 		addr := in.asAddress(cpu.segmentSelectorReg, 1, 2)
@@ -122,7 +140,6 @@ func (cpu *CPU) execute(in instruction) (isJUMP bool) {
 
 		reg := in.operands[0].value
 		cpu.generalPurposeReg[reg] = val
-		cpu.flags.zero = val == 0
 
 	case asm.OpSTORE: // STORE $mem <- reg
 		reg := in.operands[2].value
@@ -150,12 +167,12 @@ func (cpu *CPU) execute(in instruction) (isJUMP bool) {
 
 		reg := in.operands[0].value
 		cpu.generalPurposeReg[reg] = val
-		// todo: flags for val?
 
 	case asm.OpCLEAR:
 		reg := in.operands[0].value
 		cpu.generalPurposeReg[reg] = 0
 		cpu.flags.zero = true
+		cpu.flags.carry = false
 
 	case asm.OpINC:
 		reg := in.operands[0].value
@@ -163,12 +180,10 @@ func (cpu *CPU) execute(in instruction) (isJUMP bool) {
 
 		result, carry := math.Add8(val, 1)
 		cpu.generalPurposeReg[reg] = result
-		cpu.flags.zero = reg == 0
+		cpu.flags.zero = result == 0
 		cpu.flags.carry = carry
 
 	default:
 		panic(fmt.Sprintf("dunno how to execute instruction %2x (%s)", in.opCode, in.name))
 	}
-
-	return isJUMP
 }
