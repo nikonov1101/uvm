@@ -15,7 +15,6 @@ const (
 	OpMOVRegReg = 0x20
 	OpMOVRegVal = 0x21
 
-	OpLPM   = 0x22
 	OpLOAD  = 0x30
 	OpSTORE = 0x40
 )
@@ -45,8 +44,6 @@ var Syntax = map[string]map[uint8][]OperandType{
 		OpMOVRegReg: {OperandReg, OperandReg},   // move reg2' value to reg1
 		OpMOVRegVal: {OperandReg, OperandValue}, //  move value to reg1 immediately
 	},
-
-	"LPM": {OpLPM: {OperandReg, OperandAddr}}, // load ROM value at given addr to reg
 
 	// external memory
 	"LOAD":  {OpLOAD: {OperandReg, OperandAddr}},  // load register with a value stored at addr

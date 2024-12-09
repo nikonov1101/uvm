@@ -3,11 +3,9 @@ package main
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"github.com/sshaman1101/uvm/cpu"
-	"github.com/sshaman1101/uvm/defines"
 )
 
 var usageFunc = func() {
@@ -27,22 +25,20 @@ func main() {
 	}
 
 	romFile := os.Args[1]
-	image, err := ioutil.ReadFile(romFile)
+	image, err := os.ReadFile(romFile)
 	if err != nil {
 		fmt.Printf("ERR: Failed to load ROM file from %s: %v", romFile, err)
 		os.Exit(1)
 	}
 
-	if len(image) > defines.ROMSize {
+	romSize := 1 << 16
+	if len(image) > romSize {
 		fmt.Printf("WARN: ROM image does not fits into memory "+
 			"(size = %d, but %d bytes available).\n"+
-			"Image will be truncated.\n", len(image), defines.ROMSize)
+			"Image will be truncated.\n", len(image), romSize)
 	}
 
-	var rom = [defines.ROMSize]uint8{}
-	copy(rom[:], image)
-
 	uCPU := cpu.NewCPU()
-	uCPU.ROM = rom
+	uCPU.LoadROM(image)
 	uCPU.Run()
 }

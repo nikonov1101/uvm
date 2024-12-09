@@ -15,6 +15,18 @@ type (
 	nodeType    uint8
 )
 
+// Size is operand size in bytes
+func (ot OperandType) Size() int {
+	switch ot {
+	case OperandReg, OperandValue:
+		return 1
+	case OperandAddr:
+		return 2
+	default:
+		panic("unknown operand " + ot)
+	}
+}
+
 const (
 	OperandReg   OperandType = "reg"
 	OperandValue OperandType = "val"
@@ -136,8 +148,8 @@ func assemble(ins string, ops []string) []uint8 {
 }
 
 // Compile compiles program loaded from reader (usually strings.Reader or os.File)
-func Compile(textReader io.Reader) [defines.ROMSize]uint8 {
-	bin := [defines.ROMSize]uint8{}
+func Compile(textReader io.Reader) []uint8 {
+	bin := make([]byte, 1<<16)
 	offset := uint16(0x00)
 	lineNum := 0
 

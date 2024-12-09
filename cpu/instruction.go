@@ -27,20 +27,10 @@ func checkOperand(v uint8, typ asm.OperandType) string {
 		}
 		return fmt.Sprintf("r%02d", v)
 	case asm.OperandAddr:
-		if int(v) >= defines.RAMSize {
-			panic("mem address operand is out of memory")
-		}
-		return fmt.Sprintf("$%04X", v)
+		return fmt.Sprintf("$%02X", v)
 	default:
 		panic("operand type must be defined")
 	}
-}
-
-// calculateAddress calculates 16-bit address using
-// LO and HI 8-bit address parts
-func calculateAddress(lo, hi uint8) uint16 {
-	// shift HI by 8 bits, then OR with LO to fill the rest
-	return uint16(hi)<<8 | uint16(lo)
 }
 
 type instruction struct {
@@ -48,10 +38,20 @@ type instruction struct {
 	name string
 	// what to do
 	opCode uint8
-	// how many operands we need to fetch from memory
-	operandCount int
-	// on which data we need to preform operation
+	// on which data we need to preform operation,
+	// note: when the only instruction fetched, we know the
+	// operand **types** from the instruction code itself.
+	// the actual value of operands (register names, address values)
+	// will be fetched from a memory during the instruction fetch cycle.
 	operands []operand
+}
+
+func (in instruction) OperandSize() int {
+	size := 0
+	for _, op := range in.operands {
+		size += op.opType.Size()
+	}
+	return size
 }
 
 func (in instruction) String() string {
@@ -63,35 +63,33 @@ func (in instruction) String() string {
 }
 
 // asAddress returns 16 bit address from given operand indexes
-func (in *instruction) asAddress(loOp, hiOp int) uint16 {
-	return calculateAddress(in.operands[loOp].value, in.operands[hiOp].value)
+func (in instruction) asAddress(seg uint8, loOp, hiOp int) uint32 {
+	lo := in.operands[loOp].value
+	hi := in.operands[hiOp].value
+	return uint32(seg)<<16 | uint32(hi)<<8 | uint32(lo)
 }
 
 // execute the instruction
 // can touch:
-//   * registers
-//   * flag register
-//   * program counter
-// note that in must increase PC by one
-//   if it's regular instruction (not JUMP)
-// TODO: seems like the dependency must be inverted:
-//  the CPU executes the instruction, not vise versa.
-func (in *instruction) execute(cpu *CPU) {
+//   - registers
+//   - flag register
+//   - program counter (when jumps)
+func (cpu *CPU) execute(in instruction) (isJUMP bool) {
 	switch in.opCode {
 	case asm.OpNOP:
 		// just do nothing
 
 	case asm.OpJUMP:
 		// go to address, DO NOT increment PC by one
-		cpu.pc = in.asAddress(0, 1)
-		return
+		cpu.pc = in.asAddress(cpu.segmentSelectorReg, 0, 1)
+		isJUMP = true
 
 	case asm.OpADDRegReg:
 		r0 := in.operands[0].value
 		r1 := in.operands[1].value
 
-		result, carry := math.Add8(cpu.registers[r0], cpu.registers[r1])
-		cpu.registers[r0] = result
+		result, carry := math.Add8(cpu.generalPurposeReg[r0], cpu.generalPurposeReg[r1])
+		cpu.generalPurposeReg[r0] = result
 
 		cpu.flags.zero = result == 0
 		cpu.flags.carry = carry
@@ -100,8 +98,8 @@ func (in *instruction) execute(cpu *CPU) {
 		reg := in.operands[0].value
 		value := in.operands[1].value
 
-		result, carry := math.Add8(cpu.registers[reg], value)
-		cpu.registers[reg] = result
+		result, carry := math.Add8(cpu.generalPurposeReg[reg], value)
+		cpu.generalPurposeReg[reg] = result
 
 		cpu.flags.zero = result == 0
 		cpu.flags.carry = carry
@@ -109,61 +107,62 @@ func (in *instruction) execute(cpu *CPU) {
 	case asm.OpMOVRegVal:
 		reg := in.operands[0].value
 		val := in.operands[1].value
-		cpu.registers[reg] = val
+		cpu.generalPurposeReg[reg] = val
 		// todo: flags?
 
 	case asm.OpMOVRegReg:
 		dstReg := in.operands[0].value
 		srcReg := in.operands[1].value
-		cpu.registers[dstReg] = cpu.registers[srcReg]
+		cpu.generalPurposeReg[dstReg] = cpu.generalPurposeReg[srcReg]
 		// todo: flags on dstReg value?
 
-	case asm.OpLPM: // load from program memory
-		// calculate 16 bit address in ROM
-		addr := in.asAddress(1, 2)
-		// load value in the given register
-		cpu.registers[in.operands[0].value] = cpu.ROM[addr]
-		// todo: flags?
+	case asm.OpLOAD: // LOAD reg <- $mem
+		addr := in.asAddress(cpu.segmentSelectorReg, 1, 2)
+		val := cpu.mem[addr]
 
-	case asm.OpLOAD:
-		addr := in.asAddress(1, 2)
 		reg := in.operands[0].value
-		val := cpu.RAM[addr]
-		cpu.registers[reg] = val
+		cpu.generalPurposeReg[reg] = val
 		cpu.flags.zero = val == 0
 
-	case asm.OpSTORE: // addr, reg
-		addr := in.asAddress(0, 1)
+	case asm.OpSTORE: // STORE $mem <- reg
 		reg := in.operands[2].value
-		val := cpu.registers[reg]
-		cpu.RAM[addr] = val
+		val := cpu.generalPurposeReg[reg]
+
+		addr := in.asAddress(cpu.segmentSelectorReg, 0, 1)
+		cpu.mem[addr] = val
 
 	case asm.OpHALT:
 		cpu.flags.halt = true
-		return
 
 	case asm.OpPUSH:
 		reg := in.operands[0].value
-		val := cpu.registers[reg]
-		cpu.stack.push(val)
+		val := cpu.generalPurposeReg[reg]
+		sp := 0x00FFFFFF & cpu.sp
+		cpu.mem[sp] = val
+		// TODO(nikonov): any kind of stack guards, maybe?
+		cpu.sp--
 
 	case asm.OpPOP:
+		sp := 0x00FFFFFF & cpu.sp
+		val := cpu.mem[sp]
+		// TODO(nikonov): any kind of stack guards, maybe?
+		cpu.sp++
+
 		reg := in.operands[0].value
-		val := cpu.stack.pop()
-		cpu.registers[reg] = val
+		cpu.generalPurposeReg[reg] = val
 		// todo: flags for val?
 
 	case asm.OpCLEAR:
 		reg := in.operands[0].value
-		cpu.registers[reg] = 0
+		cpu.generalPurposeReg[reg] = 0
 		cpu.flags.zero = true
 
 	case asm.OpINC:
 		reg := in.operands[0].value
-		val := cpu.registers[reg]
+		val := cpu.generalPurposeReg[reg]
 
 		result, carry := math.Add8(val, 1)
-		cpu.registers[reg] = result
+		cpu.generalPurposeReg[reg] = result
 		cpu.flags.zero = reg == 0
 		cpu.flags.carry = carry
 
@@ -171,12 +170,5 @@ func (in *instruction) execute(cpu *CPU) {
 		panic(fmt.Sprintf("dunno how to execute instruction %2x (%s)", in.opCode, in.name))
 	}
 
-	// todo: math
-	//  maybe it should be like:
-	//  res = cpu.add(v1, v2)
-	//  where res is a 8bit value, and flags are set by the method accordingly?
-
-	// go to next instruction.
-	// todo: something is wrong with this design.
-	cpu.pc++
+	return isJUMP
 }

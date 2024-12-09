@@ -12,7 +12,7 @@ NOP
 ; check pop
 POP r5
 ; check mem load
-MOV r3, $0101
+LOAD r3 $1a2b
 NOP
 ; check jump
 JUMP $00FF
