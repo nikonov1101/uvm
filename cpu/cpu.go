@@ -178,9 +178,10 @@ func (cpu *CPU) debug() {
 	}
 
 	flags := fmt.Sprintf("%s | %s | %s", zs, cs, hs)
-	pc := colors.Cyan(fmt.Sprintf("0x%04X", cpu.pc))
+	pc := colors.Cyan(fmt.Sprintf("0x%06X", cpu.pc))
+	sp := colors.Magenta(fmt.Sprintf("0x%06X", cpu.sp))
 
-	fmt.Printf("\tnext pc: %s | flags: %s\n", pc, flags)
+	fmt.Printf("\tPC: %s | SP: %v | flags: %s\n", pc, sp, flags)
 	fmt.Printf("\t%s\n", strings.Join(regs, " "))
 	fmt.Println("=============================================")
 }

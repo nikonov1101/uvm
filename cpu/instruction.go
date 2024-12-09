@@ -157,13 +157,14 @@ func (cpu *CPU) execute(in instruction) {
 		sp := 0x00FFFFFF & cpu.sp
 		cpu.mem[sp] = val
 		// TODO(nikonov): any kind of stack guards, maybe?
+		// at least .SP > .PC
 		cpu.sp--
 
 	case asm.OpPOP:
+		cpu.sp++
 		sp := 0x00FFFFFF & cpu.sp
 		val := cpu.mem[sp]
 		// TODO(nikonov): any kind of stack guards, maybe?
-		cpu.sp++
 
 		reg := in.operands[0].value
 		cpu.generalPurposeReg[reg] = val
