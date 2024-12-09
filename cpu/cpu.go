@@ -21,6 +21,8 @@ type CPU struct {
 	ROM [defines.ROMSize]uint8
 	RAM [defines.RAMSize]uint8
 
+	video *videoCard
+
 	registers [defines.RegisterCount]uint8
 	stack     *stack
 	flags     *flags
@@ -33,6 +35,7 @@ func NewCPU() *CPU {
 	return &CPU{
 		ROM:       [defines.ROMSize]uint8{},
 		RAM:       [defines.RAMSize]uint8{},
+		video:     newVideo(),
 		registers: [defines.RegisterCount]uint8{},
 		stack:     newStack(defines.StackDepth),
 		flags:     &flags{},
