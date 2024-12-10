@@ -2,7 +2,9 @@ package cpu
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/nikonov1101/colors.go"
 	"github.com/sshaman1101/uvm/asm"
 	"github.com/sshaman1101/uvm/defines"
 	"github.com/sshaman1101/uvm/math"
@@ -55,11 +57,19 @@ func (in instruction) OperandSize() int {
 }
 
 func (in instruction) String() string {
-	ops := ""
+	var ops []string
 	for _, o := range in.operands {
-		ops += fmt.Sprintf("%s %0X, ", o.opType, o.value)
+		switch o.opType {
+		case asm.OperandReg:
+			ops = append(ops, colors.Green(fmt.Sprintf("reg%d", o.value)))
+		case asm.OperandValue:
+			ops = append(ops, colors.Magenta(fmt.Sprintf("val 0x%02X", o.value)))
+		case asm.OperandAddr:
+			ops = append(ops, fmt.Sprintf("addr 0x%02X", o.value))
+		}
 	}
-	return in.name + " " + ops
+	name := colors.Yellow(strings.ToUpper(in.name))
+	return name + " " + strings.Join(ops, "; ")
 }
 
 // asAddress returns 16 bit address from given operand indexes

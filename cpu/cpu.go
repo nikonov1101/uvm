@@ -83,17 +83,15 @@ func (cpu *CPU) Run() {
 			expected := next.operands[i]
 
 			// sanity check
-			opName := checkOperand(given, expected.opType)
+			checkOperand(given, expected.opType)
 			// XXX debug
-			fmt.Printf("  operand %s loaded\n", opName)
+			// fmt.Printf("  operand %s loaded\n", opName)
 
 			// store operand *data* within instruction
 			next.operands[i].value = given
 		}
 
-		// XXX print instruction with operators loaded
-		fmt.Printf("PC: %04X :: %v\n", cpu.pc, next)
-
+		cpu.debugPre(next)
 		// update PC with a number operands fetched,
 		// do this before the actual execution, so
 		// JUMP instructions may override the PC
@@ -103,7 +101,7 @@ func (cpu *CPU) Run() {
 		cpu.execute(next)
 
 		// XXX debug state on the fly
-		cpu.debug()
+		cpu.debugPost()
 
 		if cpu.flags.halt {
 			return
@@ -154,7 +152,12 @@ func (cpu *CPU) decodeInstruction(opcode uint8) instruction {
 	}
 }
 
-func (cpu *CPU) debug() {
+func (cpu *CPU) debugPre(next instruction) {
+	pc := colors.Cyan(fmt.Sprintf("0x%06X", cpu.pc))
+	fmt.Printf("PC: %s @ %v\n", pc, next.String())
+}
+
+func (cpu *CPU) debugPost() {
 	var regs []string
 	for i, r := range cpu.generalPurposeReg {
 		rs := fmt.Sprintf("0x%02X", r)
