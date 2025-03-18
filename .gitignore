@@ -1,4 +1,6 @@
 uasm
 uvm
 *.bin
+*.hex
+*.rom
 

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <title>WebSocket Example</title>
+    </head>
+    <body>
+        <img style="width: 800px; height: 600px;" id="video1"/>
+
+        <script type="text/javascript">
+            function swapImage(imgElement, newImageUrl) {
+                // Create a new Image object for preloading
+                const tempImage = new Image();
+
+                // Set the `onload` event to update the `src` of the target image
+                tempImage.onload = function () {
+                    imgElement.src = newImageUrl; // Swap image content after preload
+                };
+
+                // Set the `src` of the temporary image to start preloading
+                tempImage.src = newImageUrl;
+            }
+
+            (function() {
+                var conn = new WebSocket("ws://localhost:8080/ws");
+                conn.binaryType = 'arraybuffer';
+                const i = document.getElementById("video1");
+
+                conn.onclose = function(evt) {
+                    console.log("closed.");
+                }
+                conn.onopen = function() {
+                    console.log("ws: opened");
+                }
+                 conn.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                };
+
+                conn.onmessage = function(evt) {
+                    if (event.data instanceof ArrayBuffer) {
+                        // console.log('got update');
+                        const blob = new Blob([event.data], { type: 'image/png' });
+                        const imageUrl = URL.createObjectURL(blob);
+                        swapImage(i, imageUrl);
+                    }
+                }
+            })();
+        </script>
+    </body>
+</html>

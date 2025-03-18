@@ -2,12 +2,18 @@ package asm
 
 const (
 	OpNOP   = 0x00
-	OpJUMP  = 0x01
 	OpPUSH  = 0x02
 	OpPOP   = 0x03
 	OpCLEAR = 0x04
 	OpINC   = 0x05
 	OpHALT  = 0x09
+
+	OpCP  = 0x0A
+	OpCPI = 0x0B
+
+	OpJUMP      = 0x50
+	OpJUMPIF_EQ = 0x51
+	OpJUMPIF_NE = 0x52
 
 	OpADDRegReg = 0x10
 	OpADDRegVal = 0x11
@@ -15,7 +21,6 @@ const (
 	OpMOVRegReg = 0x20
 	OpMOVRegVal = 0x21
 
-	OpLPM   = 0x22
 	OpLOAD  = 0x30
 	OpSTORE = 0x40
 )
@@ -30,12 +35,20 @@ asm syntax help
 // Syntax maps instruction name to opcodes with operands
 var Syntax = map[string]map[uint8][]OperandType{
 	"NOP":   {OpNOP: {}},
-	"JUMP":  {OpJUMP: {OperandAddr}},
 	"PUSH":  {OpPUSH: {OperandReg}},
 	"POP":   {OpPOP: {OperandReg}},
 	"CLEAR": {OpCLEAR: {OperandReg}},
 	"INC":   {OpINC: {OperandReg}},
 	"HALT":  {OpHALT: {}},
+
+	"CP": {
+		OpCP:  {OperandReg, OperandReg},
+		OpCPI: {OperandReg, OperandValue},
+	},
+
+	"JUMP": {OpJUMP: {OperandAddr}},
+	"JE":   {OpJUMPIF_EQ: {OperandAddr}},
+	"JNE":  {OpJUMPIF_NE: {OperandAddr}},
 
 	"ADD": {
 		OpADDRegReg: {OperandReg, OperandReg},   //  do reg1 + reg2 and store the result in reg1
@@ -45,8 +58,6 @@ var Syntax = map[string]map[uint8][]OperandType{
 		OpMOVRegReg: {OperandReg, OperandReg},   // move reg2' value to reg1
 		OpMOVRegVal: {OperandReg, OperandValue}, //  move value to reg1 immediately
 	},
-
-	"LPM": {OpLPM: {OperandReg, OperandAddr}}, // load ROM value at given addr to reg
 
 	// external memory
 	"LOAD":  {OpLOAD: {OperandReg, OperandAddr}},  // load register with a value stored at addr

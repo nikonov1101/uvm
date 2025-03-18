@@ -15,6 +15,18 @@ type (
 	nodeType    uint8
 )
 
+// Size is operand size in bytes
+func (ot OperandType) Size() int {
+	switch ot {
+	case OperandReg, OperandValue:
+		return 1
+	case OperandAddr:
+		return 2
+	default:
+		panic("unknown operand " + ot)
+	}
+}
+
 const (
 	OperandReg   OperandType = "reg"
 	OperandValue OperandType = "val"
@@ -136,9 +148,8 @@ func assemble(ins string, ops []string) []uint8 {
 }
 
 // Compile compiles program loaded from reader (usually strings.Reader or os.File)
-func Compile(textReader io.Reader) [1 << 16]uint8 {
-
-	bin := [defines.ROMSize]uint8{}
+func Compile(textReader io.Reader) []uint8 {
+	bin := make([]byte, 1<<16)
 	offset := uint16(0x00)
 	lineNum := 0
 
@@ -165,7 +176,7 @@ func Compile(textReader io.Reader) [1 << 16]uint8 {
 
 		// clean-up operands
 		for i := 0; i < len(ops); i++ {
-			ops[i] = strings.Replace(strings.TrimSpace(ops[i]), ",", "", -1)
+			ops[i] = strings.ReplaceAll(strings.TrimSpace(ops[i]), ",", "")
 		}
 
 		// decide on what we're looking right now - operator or macro?
